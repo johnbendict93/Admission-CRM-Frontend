@@ -10,6 +10,9 @@ const NAV_ITEMS = [
   { href: "/leads", label: "Leads" },
   { href: "/applicants", label: "Applicants" },
   { href: "/applications", label: "Applications" },
+  { href: "/document-types", label: "Document Types" },
+  { href: "/settings", label: "Settings" },
+  { href: "/lookup-values", label: "Lookup Values" },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -35,7 +38,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <aside className="w-56 shrink-0 border-r bg-muted/30 p-4 flex flex-col gap-1">
         <div className="mb-4 px-2">
           <p className="text-sm font-semibold">Admission CRM</p>
-          <p className="text-xs text-muted-foreground">Phase A</p>
+          <p className="text-xs text-muted-foreground">Phase A + B</p>
         </div>
         {NAV_ITEMS.map((item) => (
           <Link
