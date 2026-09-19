@@ -13,6 +13,13 @@ const NAV_ITEMS = [
   { href: "/document-types", label: "Document Types" },
   { href: "/settings", label: "Settings" },
   { href: "/lookup-values", label: "Lookup Values" },
+  { href: "/scholarships", label: "Scholarships" },
+  { href: "/hostel-allotments", label: "Hostel Allotments" },
+  { href: "/telecallers", label: "Telecallers" },
+  { href: "/call-schedules", label: "Call Schedules" },
+  { href: "/campus-visits", label: "Campus Visits" },
+  { href: "/followups", label: "Followups" },
+  { href: "/counseling-sessions", label: "Counseling Sessions" },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -35,10 +42,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
-      <aside className="w-56 shrink-0 border-r bg-muted/30 p-4 flex flex-col gap-1">
+      <aside className="w-56 shrink-0 border-r bg-muted/30 p-4 flex flex-col gap-1 overflow-y-auto">
         <div className="mb-4 px-2">
           <p className="text-sm font-semibold">Admission CRM</p>
-          <p className="text-xs text-muted-foreground">Phase A + B</p>
+          <p className="text-xs text-muted-foreground">Phase A + B + C</p>
         </div>
         {NAV_ITEMS.map((item) => (
           <Link
