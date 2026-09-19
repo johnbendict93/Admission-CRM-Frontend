@@ -14,3 +14,4 @@ export * from './lookup-values/lookup-values';
 export * from './scholarships/scholarships';
 export * from './settings/settings';
 export * from './telecallers/telecallers';
+export * from './users/users';

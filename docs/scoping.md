@@ -135,11 +135,26 @@ modules land):
 
 ## 6. Known gaps (found during the build, not resolved yet)
 
-- **counselor_id on Counseling Sessions is a raw UUID text input, not a
-  picker.** It's a required FK to `users(id)`, but no endpoint in this API
-  exposes that table (no `/users` router exists - only `POST /auth/login`).
-  `telecallers` was considered as a substitute source but is an unrelated
-  table with its own id space, so it can't safely back this field. Revisit
-  once a `GET /users` or `GET /staff` endpoint exists on the backend, then
-  swap this for the same `<Select>` pattern used for applicant_id/lead_id
-  elsewhere. Flagged inline in the UI in the meantime (Sept 2026).
+- ~~**counselor_id on Counseling Sessions is a raw UUID text input, not a
+  picker.**~~ **RESOLVED (Sept 2026).** The backend gained a read-only
+  `GET /users` (paginated, active users only) and `GET /users/{id}`,
+  returning only `id, full_name, role, department, is_active` - never email
+  or phone. `?role=` is multi-value (repeated or comma-separated) so the
+  caller decides which roles to offer; the Counseling Sessions picker asks
+  for `admin, counselor, staff` (viewers excluded) via the generated
+  `useListUsersUsersGet` hook, and the amber warning is gone. An
+  already-saved counselor who is no longer in that list (deactivated, or now
+  a viewer) is shown as an explicit "Current counselor (inactive or
+  unavailable)" option when editing, rather than a blank picker.
+  `GET /users` is deliberately GET-only: creating/deactivating staff means
+  going through Supabase Auth (the `on_auth_user_created` trigger provisions
+  `public.users`), which is a separate piece of work.
+- **applicants.assigned_counselor is still a raw user-ID text input**
+  (Applicants page, "Assigned counselor (user ID)"). It is the same kind of
+  FK to `users(id)` and can now use the same `GET /users` picker; not
+  changed in this pass because only `counselor_id` on Counseling Sessions
+  was in scope.
+- **The counselor picker is capped at the first 200 active users** (the
+  API's max page size), same as the applicant/application pickers next to
+  it. Fine at this scale; needs search or paging if the staff list ever
+  approaches that.

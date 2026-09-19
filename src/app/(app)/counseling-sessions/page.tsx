@@ -11,6 +11,7 @@ import {
   getListCounselingSessionsCounselingSessionsGetQueryKey,
   useListApplicantsApplicantsGet,
   useListApplicationsApplicationsGet,
+  useListUsersUsersGet,
 } from "@/lib/api-client/generated";
 import type { CounselingSessionResponse } from "@/lib/api-client/generated/models";
 import { Button } from "@/components/ui/button";
@@ -48,20 +49,16 @@ import { readClientSession, canWrite, canDelete } from "@/lib/session";
 // tests/test_counseling_sessions.py); it's edited here as a
 // comma-separated string and split/joined at the form boundary.
 //
-// KNOWN GAP - counselor_id: this is a required FK to users(id), but no
-// endpoint anywhere in this API exposes that table (confirmed via
-// app/main.py's include_router calls - no /users router exists at all,
-// only a one-shot POST /auth/login). The `telecallers` table was
-// considered as a substitute picker source, but it's a wholly separate
-// table with its own unrelated id column (no FK relationship to users),
-// so sourcing options from it would either violate this FK constraint
-// outright or, worse, silently attribute a session to the wrong person
-// if a telecaller id ever happened to collide with a real user id.
-// There is no data anywhere in this API that can back a real dropdown
-// here. Left as a free-text UUID input with an explicit inline warning
-// (not just placeholder text, which is easy to miss) - revisit this the
-// moment a GET /users or GET /staff endpoint exists, then swap this for
-// the same <Select> picker pattern used for applicant_id/lead_id.
+// counselor_id: a required FK to users(id), rendered as a <Select> fed by
+// GET /users (the read-only staff directory - id, full_name, role,
+// department, is_active only; never email or phone). Only active users
+// come back. The picker asks the API for COUNSELOR_ROLES via the
+// multi-value ?role= filter, so viewers (read-only accounts that can't
+// conduct sessions) are excluded server-side rather than filtered here.
+// The role values are the ones the DB's own users_role_check CHECK
+// constraint allows (admin / counselor / staff / viewer); which of them
+// may be picked as a counselor is a product decision, kept in this one
+// constant.
 const MODES = ["In-Person", "Remote"] as const;
 const OUTCOMES = [
   "Interested",
@@ -87,6 +84,9 @@ const SESSION_TYPES = [
 ] as const;
 
 const NONE_APPLICATION = "__none__";
+
+// Roles offered in the counselor picker (sent as repeated ?role= params).
+const COUNSELOR_ROLES = ["admin", "counselor", "staff"];
 
 type CounselingSessionFormValues = {
   applicant_id: string;
@@ -147,6 +147,7 @@ export default function CounselingSessionsPage() {
   const listQuery = useListCounselingSessionsCounselingSessionsGet({ limit: 100, offset: 0 });
   const applicantsQuery = useListApplicantsApplicantsGet({ limit: 200, offset: 0 });
   const applicationsQuery = useListApplicationsApplicationsGet({ limit: 200, offset: 0 });
+  const counselorsQuery = useListUsersUsersGet({ role: COUNSELOR_ROLES, limit: 200, offset: 0 });
   const createMutation = useCreateCounselingSessionCounselingSessionsPost();
   const updateMutation = useUpdateCounselingSessionCounselingSessionsCounselingSessionIdPatch();
   const deleteMutation = useDeleteCounselingSessionCounselingSessionsCounselingSessionIdDelete();
@@ -161,6 +162,17 @@ export default function CounselingSessionsPage() {
     () => (applicationsQuery.data?.status === 200 ? applicationsQuery.data.data.items : []),
     [applicationsQuery.data]
   );
+  const counselors = useMemo(
+    () => (counselorsQuery.data?.status === 200 ? counselorsQuery.data.data.items : []),
+    [counselorsQuery.data]
+  );
+  // Editing a session whose counselor is no longer in the active list
+  // (deactivated, or now a viewer) must not show a blank picker while
+  // silently keeping the old id - offer that id as an explicit option.
+  const counselorMissing =
+    counselorsQuery.data?.status === 200 &&
+    !!form.counselor_id &&
+    !counselors.some((u) => u.id === form.counselor_id);
   const applicantLabel = useMemo(() => {
     const map = new Map<string, string>();
     for (const a of applicants) {
@@ -211,7 +223,7 @@ export default function CounselingSessionsPage() {
       return;
     }
     if (!form.counselor_id) {
-      toast.error("Counselor ID is required.");
+      toast.error("Pick a counselor first.");
       return;
     }
     if (!form.session_type) {
@@ -395,21 +407,34 @@ export default function CounselingSessionsPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="counselor_id">Counselor ID *</Label>
-              <Input
-                id="counselor_id"
-                required
-                placeholder="Paste a user UUID"
+              <Label htmlFor="counselor_id">Counselor *</Label>
+              <Select
                 value={form.counselor_id}
-                onChange={(e) => setForm({ ...form, counselor_id: e.target.value })}
-              />
-              <p className="text-xs text-amber-600">
-                Known gap: there&apos;s no staff directory in this API yet, so
-                this has to be the counselor&apos;s raw user ID rather than a
-                name picker. Ask an admin for it, or check the Supabase{" "}
-                <code className="font-mono">users</code> table. This will
-                become a proper dropdown once a users/staff endpoint exists.
-              </p>
+                onValueChange={(v) => setForm({ ...form, counselor_id: v })}
+              >
+                <SelectTrigger id="counselor_id">
+                  <SelectValue placeholder="Select a counselor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {counselorMissing && (
+                    <SelectItem value={form.counselor_id}>
+                      Current counselor (inactive or unavailable) - {form.counselor_id.slice(0, 8)}
+                    </SelectItem>
+                  )}
+                  {counselors.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.full_name} ({u.role}
+                      {u.department ? `, ${u.department}` : ""})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {counselorsQuery.isError && (
+                <p className="text-xs text-destructive">Failed to load the staff list.</p>
+              )}
+              {counselorsQuery.data?.status === 200 && counselors.length === 0 && (
+                <p className="text-xs text-muted-foreground">No active staff found.</p>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
