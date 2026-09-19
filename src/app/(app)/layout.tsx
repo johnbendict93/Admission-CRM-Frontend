@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/leads", label: "Leads" },
   { href: "/applicants", label: "Applicants" },
   { href: "/applications", label: "Applications" },
+  { href: "/fee-payments", label: "Fee Payments" },
   { href: "/document-types", label: "Document Types" },
   { href: "/settings", label: "Settings" },
   { href: "/lookup-values", label: "Lookup Values" },

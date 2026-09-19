@@ -39,17 +39,29 @@ import { readClientSession, canWrite, canDelete } from "@/lib/session";
 // Mirrors app/models/counseling_sessions.py's CounselingSessionBase
 // exactly. mode/outcome/session_type ARE rendered as <Select> because the
 // model's own comments confirm real DB CHECK constraints for all three -
-// unlike every free-text field elsewhere in this module. counselor_id is
-// a required FK to users(id), but there is no /users list endpoint in
-// this API (confirmed via app/main.py's include_router calls), so it
-// stays a free-text UUID Input rather than a picker. application_id is a
-// nullable FK to applications(id) with no cascade; it's offered as an
+// unlike every free-text field elsewhere in this module. application_id is
+// a nullable FK to applications(id) with no cascade; it's offered as an
 // optional picker with an explicit "None" option since applications
 // already has its own generated list hook, matching the picker pattern
 // used elsewhere. topics_discussed is a native Postgres text[] column
 // (confirmed round-tripped as a plain JSON array in
 // tests/test_counseling_sessions.py); it's edited here as a
 // comma-separated string and split/joined at the form boundary.
+//
+// KNOWN GAP - counselor_id: this is a required FK to users(id), but no
+// endpoint anywhere in this API exposes that table (confirmed via
+// app/main.py's include_router calls - no /users router exists at all,
+// only a one-shot POST /auth/login). The `telecallers` table was
+// considered as a substitute picker source, but it's a wholly separate
+// table with its own unrelated id column (no FK relationship to users),
+// so sourcing options from it would either violate this FK constraint
+// outright or, worse, silently attribute a session to the wrong person
+// if a telecaller id ever happened to collide with a real user id.
+// There is no data anywhere in this API that can back a real dropdown
+// here. Left as a free-text UUID input with an explicit inline warning
+// (not just placeholder text, which is easy to miss) - revisit this the
+// moment a GET /users or GET /staff endpoint exists, then swap this for
+// the same <Select> picker pattern used for applicant_id/lead_id.
 const MODES = ["In-Person", "Remote"] as const;
 const OUTCOMES = [
   "Interested",
@@ -387,10 +399,17 @@ export default function CounselingSessionsPage() {
               <Input
                 id="counselor_id"
                 required
-                placeholder="User UUID (no directory available)"
+                placeholder="Paste a user UUID"
                 value={form.counselor_id}
                 onChange={(e) => setForm({ ...form, counselor_id: e.target.value })}
               />
+              <p className="text-xs text-amber-600">
+                Known gap: there&apos;s no staff directory in this API yet, so
+                this has to be the counselor&apos;s raw user ID rather than a
+                name picker. Ask an admin for it, or check the Supabase{" "}
+                <code className="font-mono">users</code> table. This will
+                become a proper dropdown once a users/staff endpoint exists.
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
