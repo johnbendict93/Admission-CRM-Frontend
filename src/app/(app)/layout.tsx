@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { readClientSession, type SessionUser } from "@/lib/session";
 
 const NAV_ITEMS = [
+  { href: "/dashboard", label: "Dashboard" },
   { href: "/leads", label: "Leads" },
   { href: "/applicants", label: "Applicants" },
   { href: "/applications", label: "Applications" },
@@ -21,6 +22,7 @@ const NAV_ITEMS = [
   { href: "/campus-visits", label: "Campus Visits" },
   { href: "/followups", label: "Followups" },
   { href: "/counseling-sessions", label: "Counseling Sessions" },
+  { href: "/reports", label: "Reports" },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -46,7 +48,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <aside className="w-56 shrink-0 border-r bg-muted/30 p-4 flex flex-col gap-1 overflow-y-auto">
         <div className="mb-4 px-2">
           <p className="text-sm font-semibold">Admission CRM</p>
-          <p className="text-xs text-muted-foreground">Phase A + B + C</p>
+          <p className="text-xs text-muted-foreground">Phase A + B + C + D</p>
         </div>
         {NAV_ITEMS.map((item) => (
           <Link
