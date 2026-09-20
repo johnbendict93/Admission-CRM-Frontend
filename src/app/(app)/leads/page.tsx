@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   useListLeadsLeadsGet,
@@ -32,6 +32,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { readClientSession, canWrite, canDelete } from "@/lib/session";
 
+const PAGE_SIZE = 50;
+
 type LeadFormValues = {
   name: string;
   phone: string;
@@ -56,6 +58,7 @@ export default function LeadsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<LeadResponse | null>(null);
   const [form, setForm] = useState<LeadFormValues>(emptyForm);
+  const [page, setPage] = useState(0);
 
   useEffect(() => {
     // Cookie read is client-only (SSR has no `document`); deliberately
@@ -65,16 +68,35 @@ export default function LeadsPage() {
     setRole(readClientSession()?.role);
   }, []);
 
-  const listQuery = useListLeadsLeadsGet({ limit: 50, offset: 0 });
+  const listParams = { limit: PAGE_SIZE, offset: page * PAGE_SIZE };
+  const listQuery = useListLeadsLeadsGet(listParams, {
+    query: { placeholderData: keepPreviousData },
+  });
   const createMutation = useCreateLeadLeadsPost();
   const updateMutation = useUpdateLeadLeadsLeadIdPatch();
   const deleteMutation = useDeleteLeadLeadsLeadIdDelete();
 
   const leads: LeadResponse[] =
     listQuery.data?.status === 200 ? listQuery.data.data.items : [];
+  const total =
+    listQuery.data?.status === 200 ? listQuery.data.data.total : 0;
+  const lastPage = Math.max(0, Math.ceil(total / PAGE_SIZE) - 1);
+  const firstShown = total === 0 ? 0 : page * PAGE_SIZE + 1;
+  const lastShown = Math.min((page + 1) * PAGE_SIZE, total);
+  const loadFailed =
+    listQuery.isError ||
+    (listQuery.data !== undefined && listQuery.data.status !== 200);
+
+  // If rows were deleted and this page no longer exists, step back.
+  useEffect(() => {
+    if (listQuery.data?.status === 200 && page > lastPage) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPage(lastPage);
+    }
+  }, [listQuery.data, page, lastPage]);
 
   const invalidateList = () =>
-    queryClient.invalidateQueries({ queryKey: getListLeadsLeadsGetQueryKey({ limit: 50, offset: 0 }) });
+    queryClient.invalidateQueries({ queryKey: getListLeadsLeadsGetQueryKey(listParams) });
 
   const openCreate = () => {
     setEditingLead(null);
@@ -156,15 +178,26 @@ export default function LeadsPage() {
         <div>
           <h1 className="text-xl font-semibold">Leads</h1>
           <p className="text-sm text-muted-foreground">
-            {listQuery.data?.status === 200 ? listQuery.data.data.total : "..."} total
+            {listQuery.data?.status === 200 ? total : "?"} total
           </p>
         </div>
         {canWrite(role) && <Button onClick={openCreate}>New lead</Button>}
       </div>
 
       {listQuery.isLoading && <p className="text-sm text-muted-foreground">Loading...</p>}
-      {listQuery.isError && (
-        <p className="text-sm text-destructive">Failed to load leads.</p>
+      {loadFailed && (
+        <div className="flex items-center gap-3 text-sm text-destructive">
+          <span>
+            Couldn&apos;t load leads
+            {listQuery.data && listQuery.data.status !== 200
+              ? ` (server error ${listQuery.data.status})`
+              : ""}
+            .
+          </span>
+          <Button variant="outline" size="sm" onClick={() => listQuery.refetch()}>
+            Retry
+          </Button>
+        </div>
       )}
 
       {listQuery.data?.status === 200 && (
@@ -216,6 +249,35 @@ export default function LeadsPage() {
             )}
           </TableBody>
         </Table>
+      )}
+
+      {listQuery.data?.status === 200 && total > 0 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Showing {firstShown}–{lastShown} of {total}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page === 0 || listQuery.isFetching}
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+            >
+              Prev
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {page + 1} of {lastPage + 1}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= lastPage || listQuery.isFetching}
+              onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
