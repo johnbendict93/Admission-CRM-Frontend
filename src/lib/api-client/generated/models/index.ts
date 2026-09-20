@@ -83,6 +83,7 @@ export * from './settingUpdate';
 export * from './telecallerCreate';
 export * from './telecallerResponse';
 export * from './telecallerUpdate';
+export * from './userCreate';
 export * from './userOut';
 export * from './userResponse';
 export * from './validationError';

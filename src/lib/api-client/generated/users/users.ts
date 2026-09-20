@@ -5,16 +5,20 @@
  * OpenAPI spec version: 0.1.0
  */
 import {
+  useMutation,
   useQuery
 } from '@tanstack/react-query';
 import type {
   DataTag,
   DefinedInitialDataOptions,
   DefinedUseQueryResult,
+  MutationFunction,
   QueryClient,
   QueryFunction,
   QueryKey,
   UndefinedInitialDataOptions,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult
 } from '@tanstack/react-query';
@@ -23,6 +27,7 @@ import type {
   HTTPValidationError,
   ListUsersUsersGetParams,
   PaginatedResponseUserResponse,
+  UserCreate,
   UserResponse
 } from '../models';
 
@@ -185,7 +190,116 @@ export function useListUsersUsersGet<TData = Awaited<ReturnType<typeof listUsers
 
 
 
-export type getUserUsersUserIdGetResponse200 = {
+export type createUserUsersPostResponse201 = {
+  data: UserResponse
+  status: 201
+}
+
+export type createUserUsersPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type createUserUsersPostResponseSuccess = (createUserUsersPostResponse201) & {
+  headers: Headers;
+};
+export type createUserUsersPostResponseError = (createUserUsersPostResponse422) & {
+  headers: Headers;
+};
+
+export type createUserUsersPostResponse = (createUserUsersPostResponseSuccess | createUserUsersPostResponseError)
+
+export const getCreateUserUsersPostUrl = () => {
+
+
+
+
+  return `/users/`
+}
+
+/**
+ * Create a staff login (admin only). The admin supplies a temporary
+ * password; the person should change it after first login. Roles allowed:
+ * counselor, staff, viewer (never admin). Email and phone are not returned.
+ * @summary Create User
+ */
+export const createUserUsersPost = async (userCreate: UserCreate, options?: RequestInit): Promise<createUserUsersPostResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<createUserUsersPostResponse>(getCreateUserUsersPostUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(userCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateUserUsersPostMutationKey = () => ['createUserUsersPost'] as const;
+
+export const getCreateUserUsersPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUserUsersPost>>, TError,CreateUserUsersPostMutationVariables, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof createUserUsersPost>>, TError,CreateUserUsersPostMutationVariables, TContext> => {
+
+const mutationKey = getCreateUserUsersPostMutationKey();
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createUserUsersPost>>, CreateUserUsersPostMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createUserUsersPost(data,)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateUserUsersPostMutationResult = NonNullable<Awaited<ReturnType<typeof createUserUsersPost>>>
+    export type CreateUserUsersPostMutationBody = UserCreate
+    export type CreateUserUsersPostMutationError = HTTPValidationError
+    export type CreateUserUsersPostMutationVariables = {data: UserCreate}
+
+    /**
+ * @summary Create User
+ */
+export const useCreateUserUsersPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUserUsersPost>>, TError,CreateUserUsersPostMutationVariables, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createUserUsersPost>>,
+        TError,
+        CreateUserUsersPostMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateUserUsersPostMutationOptions(options), queryClient);
+    }
+    export type getUserUsersUserIdGetResponse200 = {
   data: UserResponse
   status: 200
 }

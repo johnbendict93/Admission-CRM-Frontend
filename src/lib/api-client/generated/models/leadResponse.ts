@@ -14,6 +14,7 @@ export interface LeadResponse {
   marks?: number | null;
   course_interest?: string | null;
   parent_name?: string | null;
+  parent_phone?: string | null;
   parent_occupation?: string | null;
   source?: string | null;
   status?: string | null;

@@ -25,6 +25,9 @@ const NAV_ITEMS = [
   { href: "/reports", label: "Reports" },
 ];
 
+// Shown only to admins (the API enforces this too; this just hides the link).
+const ADMIN_NAV_ITEMS = [{ href: "/users", label: "Users" }];
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -50,7 +53,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <p className="text-sm font-semibold">Admission CRM</p>
           <p className="text-xs text-muted-foreground">Phase A + B + C + D</p>
         </div>
-        {NAV_ITEMS.map((item) => (
+        {(user?.role === "admin" ? [...NAV_ITEMS, ...ADMIN_NAV_ITEMS] : NAV_ITEMS).map((item) => (
           <Link
             key={item.href}
             href={item.href}
