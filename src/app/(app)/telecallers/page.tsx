@@ -9,6 +9,7 @@ import {
   useUpdateTelecallerTelecallersTelecallerIdPatch,
   useDeleteTelecallerTelecallersTelecallerIdDelete,
   getListTelecallersTelecallersGetQueryKey,
+  useGetRankedLeadsMlTelecallersTelecallerNameRankedLeadsGet,
 } from "@/lib/api-client/generated";
 import type { TelecallerResponse } from "@/lib/api-client/generated/models";
 import { Button } from "@/components/ui/button";
@@ -61,6 +62,7 @@ export default function TelecallersPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<TelecallerResponse | null>(null);
   const [form, setForm] = useState<TelecallerFormValues>(emptyForm);
+  const [rankedFor, setRankedFor] = useState<TelecallerResponse | null>(null);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -71,6 +73,17 @@ export default function TelecallersPage() {
   const createMutation = useCreateTelecallerTelecallersPost();
   const updateMutation = useUpdateTelecallerTelecallersTelecallerIdPatch();
   const deleteMutation = useDeleteTelecallerTelecallersTelecallerIdDelete();
+
+  // "Ranked leads" dialog - module 21 (app/routers/ml_lead_ranking.py).
+  // Keyed by telecaller NAME, matched against leads.assigned_to (free text,
+  // not an FK) - an unmatched name returns 200 with an empty list, not 404.
+  // The generated URL builder doesn't encode the path segment, so encode
+  // here in case a name contains "/", "#" or "?". Lazy: only fetched for
+  // the telecaller whose dialog is open.
+  const rankedQuery = useGetRankedLeadsMlTelecallersTelecallerNameRankedLeadsGet(
+    rankedFor ? encodeURIComponent(rankedFor.name) : "",
+    { query: { enabled: rankedFor !== null } }
+  );
 
   const items: TelecallerResponse[] =
     listQuery.data?.status === 200 ? listQuery.data.data.items : [];
@@ -190,6 +203,9 @@ export default function TelecallersPage() {
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right space-x-2">
+                  <Button variant="outline" size="sm" onClick={() => setRankedFor(item)}>
+                    Ranked leads
+                  </Button>
                   {canWrite(role) && (
                     <Button variant="outline" size="sm" onClick={() => openEdit(item)}>
                       Edit
@@ -273,6 +289,66 @@ export default function TelecallersPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={rankedFor !== null} onOpenChange={(open) => !open && setRankedFor(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Ranked leads{rankedFor ? ` \u2013 ${rankedFor.name}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              {"Open leads assigned to this telecaller, most likely to convert first. Predictions from ML models trained on sample data \u2014 treat as a guide, not a guarantee."}
+            </p>
+            {rankedQuery.isLoading && (
+              <p className="text-sm text-muted-foreground">Loading...</p>
+            )}
+            {rankedQuery.data?.status === 200 && rankedQuery.data.data.ranked_leads.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No open leads are assigned to this name. (Matching uses the lead&apos;s
+                &quot;assigned to&quot; text, so the spelling has to match exactly.)
+              </p>
+            )}
+            {rankedQuery.data?.status === 200 && rankedQuery.data.data.ranked_leads.length > 0 && (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  {rankedQuery.data.data.lead_count} open leads
+                </p>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10">#</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Conversion</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rankedQuery.data.data.ranked_leads.map((lead, i) => (
+                      <TableRow key={lead.lead_id}>
+                        <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                        <TableCell className="font-medium">{lead.name}</TableCell>
+                        <TableCell>{lead.phone}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{lead.status ?? "New"}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {(lead.predicted_conversion_probability * 100).toFixed(0)}%
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </>
+            )}
+            {((rankedQuery.data && rankedQuery.data.status !== 200) || rankedQuery.isError) && (
+              <p className="text-sm text-muted-foreground">Not available.</p>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

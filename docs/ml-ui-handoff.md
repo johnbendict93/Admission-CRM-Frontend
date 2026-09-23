@@ -40,6 +40,12 @@ Two separate local repos, both connected as folders in this Cowork session:
   unchanged: ROC-AUC 0.605 (weak — barely better than chance, and can
   show overconfident values like 99% on individual rows).
 
+- `7212aae` — retrained `conversion_model.joblib` AGAIN, this time in John's
+  own conda env. `491f464`'s retrain did NOT actually fix it (it likely ran
+  in a different Python env) — module 21's batch predict still hit
+  `_fill_dtype`. **Lesson: always have John run `python ml/train_*.py` in
+  his own `admission-crm-api` conda env, never retrain from the device VM.**
+
 **Frontend repo (`Admission-CRM-Frontend`):**
 - `91f2081` — added the 2 missing CRUD pages: **Fee Due Schedule**
   (`src/app/(app)/fee-due-schedule/page.tsx`) and **Enquiry Monthly
@@ -73,6 +79,14 @@ Two separate local repos, both connected as folders in this Cowork session:
   + component/amount/due date. `src/app/(app)/fee-due-schedule/page.tsx`.
   Live-verified — worked first try, no retrain needed for module 18.
   Model is weak (CV ROC-AUC 0.649), so many rows sit near 50%.
+- **Telecallers page — Ranked Leads (module 21) DONE** — "Ranked leads"
+  button per telecaller, scrollable dialog with the telecaller's open
+  leads best-first (name/phone/status/conversion %). Telecaller name is
+  `encodeURIComponent`-ed because the generated URL builder doesn't
+  encode path segments. `src/app/(app)/telecallers/page.tsx`.
+  Live-verified after the conversion-model retrain above. Worth a quick
+  re-check of the Leads page AI Insights too, since module 13's model
+  file changed.
 - **Known pre-existing bug (not fixed yet):** the Followups list "Lead"
   column shows raw UUIDs for most rows because `leadLabel` only looks up
   the first 200 leads (`useListLeadsLeadsGet({ limit: 200 })`) and dev
@@ -82,7 +96,7 @@ Two separate local repos, both connected as folders in this Cowork session:
 with real values, not just "Not available"): conversion likelihood, fraud
 check, best time to call, best telecaller match.
 
-## Remaining work — 3 ML modules across 2 pages (Telecallers, Dashboard)
+## Remaining work — 2 ML modules on Dashboard (Source ROI + Demand Forecast)
 
 Follow the **Leads page pattern** (`src/app/(app)/leads/page.tsx`,
 commit `882eacf`) as the reference implementation: an "AI Insights" button
@@ -124,7 +138,7 @@ never fetched for every row in a list on page load.
   in commit `91f2081` — already has the applicant picker etc., just needs
   the AI Insights addition).
 
-### 4. Telecallers page — Ranked Leads (module 21)
+### 4. Telecallers page — Ranked Leads (module 21) — DONE
 
 Different shape from the other three — this is keyed by **telecaller
 name**, not a row id, and returns a LIST of leads, not a single score.
