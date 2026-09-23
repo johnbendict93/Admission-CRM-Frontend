@@ -6,8 +6,18 @@ import {
   useListApplicationsApplicationsGet,
   useListCallSchedulesCallSchedulesGet,
   useListFollowupsFollowupsGet,
+  useGetSourceRoiMlSourcePerformanceGet,
+  useGetDemandForecastMlDemandForecastYearMonthGet,
 } from "@/lib/api-client/generated";
 import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 
 // Phase D per the scoping doc: aggregates GET-list calls across
 // leads/applications/call_schedules/followups for funnel counts and
@@ -60,6 +70,120 @@ function StatCard({ label, value }: { label: string; value: number | string }) {
     <div className="rounded-lg border p-4">
       <p className="text-sm text-muted-foreground">{label}</p>
       <p className="text-2xl font-semibold">{value}</p>
+    </div>
+  );
+}
+
+const pct = (v: number | null | undefined) =>
+  v === null || v === undefined ? "\u2013" : `${(v * 100).toFixed(0)}%`;
+
+// Module 15 - Source ROI. Aggregated live from all leads on every request
+// (app/services/ml_source_roi_service.py), no trained model, so no
+// version-skew failure path. Rates are 0-1 fractions. Backend already
+// sorts by resolved_conversion_rate desc (sources with none go last).
+function SourcePerformanceCard() {
+  const query = useGetSourceRoiMlSourcePerformanceGet();
+  return (
+    <div className="rounded-lg border p-4 space-y-2">
+      <h3 className="text-sm font-medium text-muted-foreground">Lead source performance</h3>
+      {query.isLoading && <p className="text-sm text-muted-foreground">Loading...</p>}
+      {((query.data && query.data.status !== 200) || query.isError) && (
+        <p className="text-sm text-muted-foreground">Not available.</p>
+      )}
+      {query.data?.status === 200 && (
+        <>
+          {query.data.data.sources.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No leads yet.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Source</TableHead>
+                  <TableHead className="text-right">Leads</TableHead>
+                  <TableHead className="text-right">Enrolled</TableHead>
+                  <TableHead className="text-right">Lost</TableHead>
+                  <TableHead className="text-right">Still open</TableHead>
+                  <TableHead className="text-right">Win rate (decided)</TableHead>
+                  <TableHead className="text-right">Win rate (all)</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {query.data.data.sources.map((s) => (
+                  <TableRow key={s.source}>
+                    <TableCell className="font-medium">
+                      {s.source}
+                      {s.low_sample && (
+                        <Badge variant="outline" className="ml-2 text-xs">
+                          few leads
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">{s.total_leads}</TableCell>
+                    <TableCell className="text-right">{s.enrolled_count}</TableCell>
+                    <TableCell className="text-right">{s.lost_count}</TableCell>
+                    <TableCell className="text-right">{s.unresolved_count}</TableCell>
+                    <TableCell className="text-right font-medium">
+                      {pct(s.resolved_conversion_rate)}
+                    </TableCell>
+                    <TableCell className="text-right">{pct(s.overall_conversion_rate)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+          <p className="text-xs text-muted-foreground">
+            {"\u201cWin rate (decided)\u201d = enrolled \u00f7 (enrolled + lost), ignoring leads still in progress. Cost per source isn\u2019t tracked, so this is conversion, not true money ROI."}
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// Module 20 - one cell per calendar month. A child component so each month
+// gets its own hook call (hooks can't be called in a loop). year/month are
+// path params; backend enforces year >= BASE_YEAR (2023) - the next 3
+// months from today are always well past that.
+function ForecastMonth({ year, month }: { year: number; month: number }) {
+  const query = useGetDemandForecastMlDemandForecastYearMonthGet(year, month);
+  return (
+    <div className="rounded-md border p-3">
+      <p className="text-sm text-muted-foreground">
+        {MONTH_NAMES[month - 1]} {year}
+      </p>
+      {query.isLoading && <p className="text-lg text-muted-foreground">...</p>}
+      {query.data?.status === 200 && (
+        <p className="text-2xl font-semibold">
+          {`~${Math.round(query.data.data.predicted_enquiry_count)}`}
+        </p>
+      )}
+      {((query.data && query.data.status !== 200) || query.isError) && (
+        <p className="text-sm text-muted-foreground">Not available.</p>
+      )}
+    </div>
+  );
+}
+
+function DemandForecastCard({ now }: { now: Date }) {
+  const months = [1, 2, 3].map((offset) => {
+    const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+    return { year: d.getFullYear(), month: d.getMonth() + 1 };
+  });
+  return (
+    <div className="rounded-lg border p-4 space-y-2">
+      <h3 className="text-sm font-medium text-muted-foreground">
+        Expected enquiries {"\u2013"} next 3 months
+      </h3>
+      <div className="grid grid-cols-3 gap-3">
+        {months.map((m) => (
+          <ForecastMonth key={`${m.year}-${m.month}`} year={m.year} month={m.month} />
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {"Forecast from an ML model trained on sample data \u2014 treat as a guide, not a guarantee."}
+      </p>
     </div>
   );
 }
@@ -202,6 +326,10 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      <h2 className="text-lg font-semibold">AI Insights</h2>
+      <DemandForecastCard now={now} />
+      <SourcePerformanceCard />
     </div>
   );
 }

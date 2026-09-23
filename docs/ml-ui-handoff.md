@@ -87,6 +87,19 @@ Two separate local repos, both connected as folders in this Cowork session:
   Live-verified after the conversion-model retrain above. Worth a quick
   re-check of the Leads page AI Insights too, since module 13's model
   file changed.
+- **Dashboard — Source ROI (15) + Demand Forecast (20) DONE** — new
+  "AI Insights" section at the bottom of `src/app/(app)/dashboard/page.tsx`:
+  a 3-card forecast for the next 3 calendar months (auto-computed, no
+  input) and a lead-source table (leads/enrolled/lost/open, decided and
+  overall win rates, "few leads" tag on low_sample). Live-verified — module
+  20 worked with no retrain. Caveat: module 20's CV MAE is ~12.65
+  enquiries/month, about the same size as the forecasts themselves
+  (~12-23), so treat the numbers as very rough.
+
+**ALL 10 ML MODULES NOW HAVE UI.** Next candidates (not started): the
+pre-existing lead-name bug below, deploying the retrained models to
+Render ("Deploy latest commit"), and the Vercel frontend deploy.
+
 - **Known pre-existing bug (not fixed yet):** the Followups list "Lead"
   column shows raw UUIDs for most rows because `leadLabel` only looks up
   the first 200 leads (`useListLeadsLeadsGet({ limit: 200 })`) and dev
@@ -96,7 +109,7 @@ Two separate local repos, both connected as folders in this Cowork session:
 with real values, not just "Not available"): conversion likelihood, fraud
 check, best time to call, best telecaller match.
 
-## Remaining work — 2 ML modules on Dashboard (Source ROI + Demand Forecast)
+## Remaining work — none (all 10 done); reference notes below
 
 Follow the **Leads page pattern** (`src/app/(app)/leads/page.tsx`,
 commit `882eacf`) as the reference implementation: an "AI Insights" button
@@ -155,7 +168,7 @@ name**, not a row id, and returns a LIST of leads, not a single score.
   ranked leads" button per telecaller row opening a dialog with the
   sorted list (name, phone, status, probability).
 
-### 5 & 6. Dashboard page — Source ROI + Demand Forecast (modules 15, 20)
+### 5 & 6. Dashboard page — Source ROI + Demand Forecast (modules 15, 20) — DONE
 
 Both are aggregate/summary endpoints, not tied to one row — this is why
 they're on Dashboard rather than an existing list page.
