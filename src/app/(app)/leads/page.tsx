@@ -395,8 +395,7 @@ export default function LeadsPage() {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-xs text-muted-foreground">
-              Predictions from ML models trained on sample data \u2014 treat as a
-              guide, not a guarantee.
+              {"Predictions from ML models trained on sample data \u2014 treat as a guide, not a guarantee."}
             </p>
 
             <div className="space-y-1">
