@@ -68,6 +68,11 @@ Two separate local repos, both connected as folders in this Cowork session:
   no retrain needed for module 19. Caveat: module 19's CV accuracy is
   1.000 because the synthetic notes are templated; expect it to be far
   less sure on real, messy notes.
+- **Fee Due Schedule page — Fee Default Risk (module 18) DONE** —
+  "AI Insights" button per row, dialog shows default probability + label
+  + component/amount/due date. `src/app/(app)/fee-due-schedule/page.tsx`.
+  Live-verified — worked first try, no retrain needed for module 18.
+  Model is weak (CV ROC-AUC 0.649), so many rows sit near 50%.
 - **Known pre-existing bug (not fixed yet):** the Followups list "Lead"
   column shows raw UUIDs for most rows because `leadLabel` only looks up
   the first 200 leads (`useListLeadsLeadsGet({ limit: 200 })`) and dev
@@ -77,7 +82,7 @@ Two separate local repos, both connected as folders in this Cowork session:
 with real values, not just "Not available"): conversion likelihood, fraud
 check, best time to call, best telecaller match.
 
-## Remaining work — 4 ML modules across 3 pages (Applications, Followups done)
+## Remaining work — 3 ML modules across 2 pages (Telecallers, Dashboard)
 
 Follow the **Leads page pattern** (`src/app/(app)/leads/page.tsx`,
 commit `882eacf`) as the reference implementation: an "AI Insights" button
@@ -107,7 +112,7 @@ never fetched for every row in a list on page load.
   `model_version`.
 - File to edit: `src/app/(app)/followups/page.tsx`.
 
-### 3. Fee Due Schedule page — Fee Default Risk (module 18)
+### 3. Fee Due Schedule page — Fee Default Risk (module 18) — DONE
 
 - Route: `GET /ml/fee-due-schedule/{fee_due_schedule_id}/default-risk`
 - Hook: `useGetFeeDefaultRiskMlFeeDueScheduleFeeDueScheduleIdDefaultRiskGet(feeDueScheduleId, { query: { enabled } })`
@@ -190,12 +195,12 @@ model in memory via `lru_cache` — a code-only `--reload` does NOT pick up
 a changed `.joblib` file, has to be a manual stop + restart).
 
 **Heads-up for the remaining modules:** only modules 13 (conversion) and
-16 (dropout) have been retrained under scikit-learn 1.9.1 so far. Modules
-18 (fee default) and 20 (demand forecast) are
+16 (dropout) have been retrained under scikit-learn 1.9.1 so far. Module
+20 (demand forecast) is the only one not yet exercised live and is
 likely to hit the same `_fill_dtype` / version-skew error the first time
 they're called — if "Not available" shows up, retrain that one model and
 restart uvicorn before debugging the frontend. (14, 17 and 22 were
-verified live on the Leads page, and 19 on Followups, so they're fine.)
+verified live on the Leads page, 19 on Followups, 18 on Fee Due Schedule, so they're fine.)
 
 **#3 — Two servers running by accident.** While testing this live, John
 once started a second `uvicorn` in a new terminal without stopping the

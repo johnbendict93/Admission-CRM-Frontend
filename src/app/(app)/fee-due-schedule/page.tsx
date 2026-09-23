@@ -10,6 +10,7 @@ import {
   useDeleteFeeDueScheduleFeeDueScheduleFeeDueScheduleIdDelete,
   getListFeeDueSchedulesFeeDueScheduleGetQueryKey,
   useListApplicantsApplicantsGet,
+  useGetFeeDefaultRiskMlFeeDueScheduleFeeDueScheduleIdDefaultRiskGet,
 } from "@/lib/api-client/generated";
 import type { FeeDueScheduleResponse } from "@/lib/api-client/generated/models";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -62,6 +64,7 @@ export default function FeeDueSchedulePage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<FeeDueScheduleResponse | null>(null);
   const [form, setForm] = useState<FeeDueScheduleFormValues>(emptyForm);
+  const [insightsItem, setInsightsItem] = useState<FeeDueScheduleResponse | null>(null);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -73,6 +76,14 @@ export default function FeeDueSchedulePage() {
   const createMutation = useCreateFeeDueScheduleFeeDueSchedulePost();
   const updateMutation = useUpdateFeeDueScheduleFeeDueScheduleFeeDueScheduleIdPatch();
   const deleteMutation = useDeleteFeeDueScheduleFeeDueScheduleFeeDueScheduleIdDelete();
+
+  // AI Insights dialog - module 18 fee default risk
+  // (app/routers/ml_fee_default_risk.py, keyed on fee_due_schedule id).
+  // Lazy: only fetched for the one row whose dialog is open, never per row.
+  const defaultRiskQuery = useGetFeeDefaultRiskMlFeeDueScheduleFeeDueScheduleIdDefaultRiskGet(
+    insightsItem?.id ?? "",
+    { query: { enabled: insightsItem !== null } }
+  );
 
   const items: FeeDueScheduleResponse[] = useMemo(
     () => (listQuery.data?.status === 200 ? listQuery.data.data.items : []),
@@ -221,6 +232,9 @@ export default function FeeDueSchedulePage() {
                 <TableCell>{item.due_date ?? "-"}</TableCell>
                 <TableCell>{item.academic_year ?? "-"}</TableCell>
                 <TableCell className="text-right space-x-2">
+                  <Button variant="outline" size="sm" onClick={() => setInsightsItem(item)}>
+                    AI Insights
+                  </Button>
                   {canWrite(role) && (
                     <Button variant="outline" size="sm" onClick={() => openEdit(item)}>
                       Edit
@@ -323,6 +337,50 @@ export default function FeeDueSchedulePage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={insightsItem !== null} onOpenChange={(open) => !open && setInsightsItem(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              AI Insights{insightsItem ? ` \u2013 ${applicantLabel(insightsItem.applicant_id)}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              {"Predictions from ML models trained on sample data \u2014 treat as a guide, not a guarantee."}
+            </p>
+
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Fee default risk</p>
+              {defaultRiskQuery.isLoading && (
+                <p className="text-sm text-muted-foreground">Loading...</p>
+              )}
+              {defaultRiskQuery.data?.status === 200 && (
+                <>
+                  <p className="text-sm">
+                    {(defaultRiskQuery.data.data.default_probability * 100).toFixed(0)}% chance of not paying on time
+                    {" \u00b7 "}
+                    <Badge
+                      variant={
+                        defaultRiskQuery.data.data.default_probability >= 0.5 ? "destructive" : "secondary"
+                      }
+                    >
+                      {defaultRiskQuery.data.data.predicted_label}
+                    </Badge>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {`${defaultRiskQuery.data.data.fee_component} \u00b7 \u20b9${defaultRiskQuery.data.data.amount_due.toLocaleString("en-IN")} due ${defaultRiskQuery.data.data.due_date}`}
+                  </p>
+                </>
+              )}
+              {((defaultRiskQuery.data && defaultRiskQuery.data.status !== 200) ||
+                defaultRiskQuery.isError) && (
+                <p className="text-sm text-muted-foreground">Not available.</p>
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
