@@ -9,6 +9,10 @@ import {
   useUpdateLeadLeadsLeadIdPatch,
   useDeleteLeadLeadsLeadIdDelete,
   getListLeadsLeadsGetQueryKey,
+  useGetConversionPredictionMlLeadsLeadIdConversionPredictionGet,
+  useGetFraudScoreMlLeadsLeadIdFraudScoreGet,
+  useGetBestFollowupTimeMlLeadsLeadIdBestFollowupTimeGet,
+  useGetBestTelecallerMlLeadsLeadIdBestTelecallerGet,
 } from "@/lib/api-client/generated";
 import type { LeadResponse } from "@/lib/api-client/generated/models";
 import { Button } from "@/components/ui/button";
@@ -52,6 +56,13 @@ const emptyForm: LeadFormValues = {
   status: "New",
 };
 
+// module 14's best_hour is a 24-hour int (see app/models/ml_followup_timing.py) - display-only conversion.
+const formatHour = (hour: number) => {
+  const period = hour >= 12 ? "PM" : "AM";
+  const h12 = hour % 12 === 0 ? 12 : hour % 12;
+  return `${h12}:00 ${period}`;
+};
+
 export default function LeadsPage() {
   const queryClient = useQueryClient();
   const [role, setRole] = useState<string | undefined>(undefined);
@@ -59,6 +70,7 @@ export default function LeadsPage() {
   const [editingLead, setEditingLead] = useState<LeadResponse | null>(null);
   const [form, setForm] = useState<LeadFormValues>(emptyForm);
   const [page, setPage] = useState(0);
+  const [insightsLead, setInsightsLead] = useState<LeadResponse | null>(null);
 
   useEffect(() => {
     // Cookie read is client-only (SSR has no `document`); deliberately
@@ -75,6 +87,30 @@ export default function LeadsPage() {
   const createMutation = useCreateLeadLeadsPost();
   const updateMutation = useUpdateLeadLeadsLeadIdPatch();
   const deleteMutation = useDeleteLeadLeadsLeadIdDelete();
+
+  // AI Insights dialog - all 4 are per-lead ML predictions (see
+  // app/routers/ml_*.py - each keyed on lead_id). Deliberately NOT
+  // fetched for every row in the list (that would fire 4 x 50 requests
+  // just to render a page) - only for the one lead whose insights
+  // dialog is open, and only while it's open.
+  const insightsId = insightsLead?.id ?? "";
+  const insightsEnabled = insightsLead !== null;
+  const conversionQuery = useGetConversionPredictionMlLeadsLeadIdConversionPredictionGet(
+    insightsId,
+    { query: { enabled: insightsEnabled } }
+  );
+  const fraudQuery = useGetFraudScoreMlLeadsLeadIdFraudScoreGet(
+    insightsId,
+    { query: { enabled: insightsEnabled } }
+  );
+  const followupTimeQuery = useGetBestFollowupTimeMlLeadsLeadIdBestFollowupTimeGet(
+    insightsId,
+    { query: { enabled: insightsEnabled } }
+  );
+  const telecallerQuery = useGetBestTelecallerMlLeadsLeadIdBestTelecallerGet(
+    insightsId,
+    { query: { enabled: insightsEnabled } }
+  );
 
   const leads: LeadResponse[] =
     listQuery.data?.status === 200 ? listQuery.data.data.items : [];
@@ -223,6 +259,9 @@ export default function LeadsPage() {
                 </TableCell>
                 <TableCell>{lead.score ?? 0}</TableCell>
                 <TableCell className="text-right space-x-2">
+                  <Button variant="outline" size="sm" onClick={() => setInsightsLead(lead)}>
+                    AI Insights
+                  </Button>
                   {canWrite(role) && (
                     <Button variant="outline" size="sm" onClick={() => openEdit(lead)}>
                       Edit
@@ -346,6 +385,104 @@ export default function LeadsPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={insightsLead !== null} onOpenChange={(open) => !open && setInsightsLead(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>AI Insights{insightsLead ? ` \u2013 ${insightsLead.name}` : ""}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              Predictions from ML models trained on sample data \u2014 treat as a
+              guide, not a guarantee.
+            </p>
+
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Conversion likelihood</p>
+              {conversionQuery.isLoading && (
+                <p className="text-sm text-muted-foreground">Loading...</p>
+              )}
+              {conversionQuery.data?.status === 200 && (
+                <p className="text-sm">
+                  {(conversionQuery.data.data.probability * 100).toFixed(0)}%
+                  {" \u00b7 "}
+                  <Badge
+                    variant={
+                      conversionQuery.data.data.probability >= 0.5 ? "default" : "secondary"
+                    }
+                  >
+                    {conversionQuery.data.data.predicted_label}
+                  </Badge>
+                </p>
+              )}
+              {conversionQuery.data && conversionQuery.data.status !== 200 && (
+                <p className="text-sm text-muted-foreground">Not available.</p>
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Fraud check</p>
+              {fraudQuery.isLoading && (
+                <p className="text-sm text-muted-foreground">Loading...</p>
+              )}
+              {fraudQuery.data?.status === 200 && (
+                <Badge variant={fraudQuery.data.data.is_anomalous ? "destructive" : "secondary"}>
+                  {fraudQuery.data.data.is_anomalous
+                    ? "Flagged as unusual"
+                    : "No anomaly detected"}
+                </Badge>
+              )}
+              {fraudQuery.data && fraudQuery.data.status !== 200 && (
+                <p className="text-sm text-muted-foreground">Not available.</p>
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Best time to call</p>
+              {followupTimeQuery.isLoading && (
+                <p className="text-sm text-muted-foreground">Loading...</p>
+              )}
+              {followupTimeQuery.data?.status === 200 && (
+                <p className="text-sm">
+                  {formatHour(followupTimeQuery.data.data.best_hour)}
+                  {" \u00b7 "}
+                  {(followupTimeQuery.data.data.best_hour_probability * 100).toFixed(0)}%
+                  predicted positive response
+                </p>
+              )}
+              {followupTimeQuery.data && followupTimeQuery.data.status !== 200 && (
+                <p className="text-sm text-muted-foreground">Not available.</p>
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Best telecaller match</p>
+              {telecallerQuery.isLoading && (
+                <p className="text-sm text-muted-foreground">Loading...</p>
+              )}
+              {telecallerQuery.data?.status === 200 && (
+                <p className="text-sm">
+                  {telecallerQuery.data.data.best_telecaller}
+                  {" \u00b7 "}
+                  {(telecallerQuery.data.data.best_telecaller_probability * 100).toFixed(0)}%
+                  predicted conversion
+                  {telecallerQuery.data.data.current_assigned_to &&
+                    telecallerQuery.data.data.current_assigned_to !==
+                      telecallerQuery.data.data.best_telecaller && (
+                      <span className="text-muted-foreground">
+                        {" "}
+                        (currently assigned to {telecallerQuery.data.data.current_assigned_to})
+                      </span>
+                    )}
+                </p>
+              )}
+              {telecallerQuery.data && telecallerQuery.data.status !== 200 && (
+                <p className="text-sm text-muted-foreground">Not available.</p>
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
