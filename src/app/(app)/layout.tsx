@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { href: "/applicants", label: "Applicants" },
   { href: "/applications", label: "Applications" },
   { href: "/fee-payments", label: "Fee Payments" },
+  { href: "/fee-due-schedule", label: "Fee Due Schedule" },
   { href: "/document-types", label: "Document Types" },
   { href: "/settings", label: "Settings" },
   { href: "/lookup-values", label: "Lookup Values" },
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
   { href: "/campus-visits", label: "Campus Visits" },
   { href: "/followups", label: "Followups" },
   { href: "/counseling-sessions", label: "Counseling Sessions" },
+  { href: "/enquiry-monthly-history", label: "Enquiry Monthly History" },
   { href: "/reports", label: "Reports" },
 ];
 
