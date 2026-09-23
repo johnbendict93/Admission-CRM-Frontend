@@ -96,14 +96,16 @@ Two separate local repos, both connected as folders in this Cowork session:
   enquiries/month, about the same size as the forecasts themselves
   (~12-23), so treat the numbers as very rough.
 
-**ALL 10 ML MODULES NOW HAVE UI.** Next candidates (not started): the
-pre-existing lead-name bug below, deploying the retrained models to
+**ALL 10 ML MODULES NOW HAVE UI.** Next candidates (not started): deploying the retrained models to
 Render ("Deploy latest commit"), and the Vercel frontend deploy.
 
-- **Known pre-existing bug (not fixed yet):** the Followups list "Lead"
-  column shows raw UUIDs for most rows because `leadLabel` only looks up
-  the first 200 leads (`useListLeadsLeadsGet({ limit: 200 })`) and dev
-  has ~534. Same pattern may affect other pages' pickers.
+- **FIXED — lead names showing as raw UUIDs:** `GET /leads` caps `limit`
+  at 200 and pages only fetched once. New shared hook
+  `src/lib/hooks/use-all-leads.ts` pages through ALL leads; now used by
+  Followups, Call Schedules, Campus Visits and Dashboard (which also makes
+  Dashboard's "Leads by status" counts complete). Live-verified on
+  Followups. Applicant pickers still use a single `limit: 200` fetch —
+  fine while dev has <200 applicants, same fix applies if that grows.
 
 **Live-verified in the browser** (all 4 Leads predictions confirmed working
 with real values, not just "Not available"): conversion likelihood, fraud

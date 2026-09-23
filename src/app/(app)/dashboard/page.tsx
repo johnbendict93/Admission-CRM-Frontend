@@ -2,13 +2,13 @@
 
 import { useMemo } from "react";
 import {
-  useListLeadsLeadsGet,
   useListApplicationsApplicationsGet,
   useListCallSchedulesCallSchedulesGet,
   useListFollowupsFollowupsGet,
   useGetSourceRoiMlSourcePerformanceGet,
   useGetDemandForecastMlDemandForecastYearMonthGet,
 } from "@/lib/api-client/generated";
+import { useAllLeads } from "@/lib/hooks/use-all-leads";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -189,12 +189,12 @@ function DemandForecastCard({ now }: { now: Date }) {
 }
 
 export default function DashboardPage() {
-  const leadsQuery = useListLeadsLeadsGet({ limit: 200, offset: 0 });
+  const leadsQuery = useAllLeads();
   const applicationsQuery = useListApplicationsApplicationsGet({ limit: 200, offset: 0 });
   const callSchedulesQuery = useListCallSchedulesCallSchedulesGet({ limit: 200, offset: 0 });
   const followupsQuery = useListFollowupsFollowupsGet({ limit: 200, offset: 0 });
 
-  const leadsTotal = leadsQuery.data?.status === 200 ? leadsQuery.data.data.total : null;
+  const leadsTotal = leadsQuery.data ? leadsQuery.data.length : null;
   const applicationsTotal =
     applicationsQuery.data?.status === 200 ? applicationsQuery.data.data.total : null;
   const callSchedulesTotal =
@@ -203,7 +203,7 @@ export default function DashboardPage() {
     followupsQuery.data?.status === 200 ? followupsQuery.data.data.total : null;
 
   const leads = useMemo(
-    () => (leadsQuery.data?.status === 200 ? leadsQuery.data.data.items : []),
+    () => (leadsQuery.data ?? []),
     [leadsQuery.data]
   );
   const applications = useMemo(

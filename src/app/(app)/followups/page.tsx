@@ -9,9 +9,9 @@ import {
   useUpdateFollowupFollowupsFollowupIdPatch,
   useDeleteFollowupFollowupsFollowupIdDelete,
   getListFollowupsFollowupsGetQueryKey,
-  useListLeadsLeadsGet,
   useGetCallSentimentMlFollowupsFollowupIdSentimentGet,
 } from "@/lib/api-client/generated";
+import { useAllLeads } from "@/lib/hooks/use-all-leads";
 import type { FollowupResponse } from "@/lib/api-client/generated/models";
 import { Button } from "@/components/ui/button";
 import {
@@ -78,7 +78,7 @@ export default function FollowupsPage() {
   }, []);
 
   const listQuery = useListFollowupsFollowupsGet({ limit: 100, offset: 0 });
-  const leadsQuery = useListLeadsLeadsGet({ limit: 200, offset: 0 });
+  const leadsQuery = useAllLeads();
   const createMutation = useCreateFollowupFollowupsPost();
   const updateMutation = useUpdateFollowupFollowupsFollowupIdPatch();
   const deleteMutation = useDeleteFollowupFollowupsFollowupIdDelete();
@@ -94,7 +94,7 @@ export default function FollowupsPage() {
   const items: FollowupResponse[] =
     listQuery.data?.status === 200 ? listQuery.data.data.items : [];
   const leads = useMemo(
-    () => (leadsQuery.data?.status === 200 ? leadsQuery.data.data.items : []),
+    () => (leadsQuery.data ?? []),
     [leadsQuery.data]
   );
   const leadLabel = useMemo(() => {

@@ -9,8 +9,8 @@ import {
   useUpdateCampusVisitCampusVisitsCampusVisitIdPatch,
   useDeleteCampusVisitCampusVisitsCampusVisitIdDelete,
   getListCampusVisitsCampusVisitsGetQueryKey,
-  useListLeadsLeadsGet,
 } from "@/lib/api-client/generated";
+import { useAllLeads } from "@/lib/hooks/use-all-leads";
 import type { CampusVisitResponse } from "@/lib/api-client/generated/models";
 import { Button } from "@/components/ui/button";
 import {
@@ -69,7 +69,7 @@ export default function CampusVisitsPage() {
   }, []);
 
   const listQuery = useListCampusVisitsCampusVisitsGet({ limit: 100, offset: 0 });
-  const leadsQuery = useListLeadsLeadsGet({ limit: 200, offset: 0 });
+  const leadsQuery = useAllLeads();
   const createMutation = useCreateCampusVisitCampusVisitsPost();
   const updateMutation = useUpdateCampusVisitCampusVisitsCampusVisitIdPatch();
   const deleteMutation = useDeleteCampusVisitCampusVisitsCampusVisitIdDelete();
@@ -77,7 +77,7 @@ export default function CampusVisitsPage() {
   const items: CampusVisitResponse[] =
     listQuery.data?.status === 200 ? listQuery.data.data.items : [];
   const leads = useMemo(
-    () => (leadsQuery.data?.status === 200 ? leadsQuery.data.data.items : []),
+    () => (leadsQuery.data ?? []),
     [leadsQuery.data]
   );
   const leadLabel = useMemo(() => {

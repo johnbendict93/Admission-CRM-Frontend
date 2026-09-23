@@ -9,8 +9,8 @@ import {
   useUpdateCallScheduleCallSchedulesCallScheduleIdPatch,
   useDeleteCallScheduleCallSchedulesCallScheduleIdDelete,
   getListCallSchedulesCallSchedulesGetQueryKey,
-  useListLeadsLeadsGet,
 } from "@/lib/api-client/generated";
+import { useAllLeads } from "@/lib/hooks/use-all-leads";
 import type { CallScheduleResponse } from "@/lib/api-client/generated/models";
 import { Button } from "@/components/ui/button";
 import {
@@ -97,7 +97,7 @@ export default function CallSchedulesPage() {
   }, []);
 
   const listQuery = useListCallSchedulesCallSchedulesGet({ limit: 100, offset: 0 });
-  const leadsQuery = useListLeadsLeadsGet({ limit: 200, offset: 0 });
+  const leadsQuery = useAllLeads();
   const createMutation = useCreateCallScheduleCallSchedulesPost();
   const updateMutation = useUpdateCallScheduleCallSchedulesCallScheduleIdPatch();
   const deleteMutation = useDeleteCallScheduleCallSchedulesCallScheduleIdDelete();
@@ -105,7 +105,7 @@ export default function CallSchedulesPage() {
   const items: CallScheduleResponse[] =
     listQuery.data?.status === 200 ? listQuery.data.data.items : [];
   const leads = useMemo(
-    () => (leadsQuery.data?.status === 200 ? leadsQuery.data.data.items : []),
+    () => (leadsQuery.data ?? []),
     [leadsQuery.data]
   );
   const leadLabel = useMemo(() => {
