@@ -10,6 +10,7 @@ import {
   useDeleteFollowupFollowupsFollowupIdDelete,
   getListFollowupsFollowupsGetQueryKey,
   useListLeadsLeadsGet,
+  useGetCallSentimentMlFollowupsFollowupIdSentimentGet,
 } from "@/lib/api-client/generated";
 import type { FollowupResponse } from "@/lib/api-client/generated/models";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -68,6 +70,7 @@ export default function FollowupsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<FollowupResponse | null>(null);
   const [form, setForm] = useState<FollowupFormValues>(emptyForm);
+  const [insightsItem, setInsightsItem] = useState<FollowupResponse | null>(null);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -79,6 +82,14 @@ export default function FollowupsPage() {
   const createMutation = useCreateFollowupFollowupsPost();
   const updateMutation = useUpdateFollowupFollowupsFollowupIdPatch();
   const deleteMutation = useDeleteFollowupFollowupsFollowupIdDelete();
+
+  // AI Insights dialog - module 19 call sentiment (app/routers/ml_call_sentiment.py,
+  // keyed on followup_id, reads that followup's notes). Lazy: only fetched
+  // for the one followup whose dialog is open, never per row.
+  const sentimentQuery = useGetCallSentimentMlFollowupsFollowupIdSentimentGet(
+    insightsItem?.id ?? "",
+    { query: { enabled: insightsItem !== null } }
+  );
 
   const items: FollowupResponse[] =
     listQuery.data?.status === 200 ? listQuery.data.data.items : [];
@@ -219,6 +230,9 @@ export default function FollowupsPage() {
                 <TableCell>{item.response ?? "-"}</TableCell>
                 <TableCell>{item.next_followup_date ?? "-"}</TableCell>
                 <TableCell className="text-right space-x-2">
+                  <Button variant="outline" size="sm" onClick={() => setInsightsItem(item)}>
+                    AI Insights
+                  </Button>
                   {canWrite(role) && (
                     <Button variant="outline" size="sm" onClick={() => openEdit(item)}>
                       Edit
@@ -331,6 +345,71 @@ export default function FollowupsPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={insightsItem !== null} onOpenChange={(open) => !open && setInsightsItem(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              AI Insights{insightsItem ? ` \u2013 ${leadLabel(insightsItem.lead_id)}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              {"Predictions from ML models trained on sample data \u2014 treat as a guide, not a guarantee."}
+            </p>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Call sentiment</p>
+              {sentimentQuery.isLoading && (
+                <p className="text-sm text-muted-foreground">Loading...</p>
+              )}
+              {sentimentQuery.data?.status === 200 && (
+                <>
+                  {sentimentQuery.data.data.notes.trim() === "" ? (
+                    <p className="text-sm text-muted-foreground">
+                      This followup has no call notes, so there&apos;s nothing to analyse.
+                    </p>
+                  ) : (
+                    <>
+                      <Badge
+                        className="capitalize"
+                        variant={
+                          sentimentQuery.data.data.predicted_sentiment === "negative"
+                            ? "destructive"
+                            : sentimentQuery.data.data.predicted_sentiment === "positive"
+                              ? "default"
+                              : "secondary"
+                        }
+                      >
+                        {sentimentQuery.data.data.predicted_sentiment}
+                      </Badge>
+                      <ul className="text-sm space-y-0.5">
+                        {[...sentimentQuery.data.data.scores]
+                          .sort((a, b) => b.probability - a.probability)
+                          .map((sc) => (
+                            <li key={sc.label} className="flex justify-between max-w-xs">
+                              <span className="capitalize">{sc.label}</span>
+                              <span className="text-muted-foreground">
+                                {(sc.probability * 100).toFixed(0)}%
+                              </span>
+                            </li>
+                          ))}
+                      </ul>
+                      <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                        {`Notes: \u201c${sentimentQuery.data.data.notes}\u201d`}
+                      </p>
+                    </>
+                  )}
+                </>
+              )}
+              {((sentimentQuery.data && sentimentQuery.data.status !== 200) ||
+                sentimentQuery.isError) && (
+                <p className="text-sm text-muted-foreground">Not available.</p>
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

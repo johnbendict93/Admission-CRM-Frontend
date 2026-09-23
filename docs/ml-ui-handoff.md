@@ -61,11 +61,23 @@ Two separate local repos, both connected as folders in this Cowork session:
   after the `f1d304c` retrain. (Commit hash: see `git log` —
   `feat: add dropout risk AI Insights to Applications page`.)
 
+- **Followups page — Call Sentiment (module 19) DONE** — "AI Insights"
+  button per row, dialog shows sentiment badge, all 3 class
+  probabilities, and the notes text analysed (handles empty notes).
+  `src/app/(app)/followups/page.tsx`. Live-verified — worked first try,
+  no retrain needed for module 19. Caveat: module 19's CV accuracy is
+  1.000 because the synthetic notes are templated; expect it to be far
+  less sure on real, messy notes.
+- **Known pre-existing bug (not fixed yet):** the Followups list "Lead"
+  column shows raw UUIDs for most rows because `leadLabel` only looks up
+  the first 200 leads (`useListLeadsLeadsGet({ limit: 200 })`) and dev
+  has ~534. Same pattern may affect other pages' pickers.
+
 **Live-verified in the browser** (all 4 Leads predictions confirmed working
 with real values, not just "Not available"): conversion likelihood, fraud
 check, best time to call, best telecaller match.
 
-## Remaining work — 5 ML modules across 4 pages (Applications done)
+## Remaining work — 4 ML modules across 3 pages (Applications, Followups done)
 
 Follow the **Leads page pattern** (`src/app/(app)/leads/page.tsx`,
 commit `882eacf`) as the reference implementation: an "AI Insights" button
@@ -85,7 +97,7 @@ never fetched for every row in a list on page load.
   so this can be a simpler one-section dialog (or even a badge in a popover)
   rather than the 4-section Leads dialog.
 
-### 2. Followups page — Call Sentiment (module 19)
+### 2. Followups page — Call Sentiment (module 19) — DONE
 
 - Route: `GET /ml/followups/{followup_id}/sentiment`
 - Hook: `useGetCallSentimentMlFollowupsFollowupIdSentimentGet(followupId, { query: { enabled } })`
@@ -179,11 +191,11 @@ a changed `.joblib` file, has to be a manual stop + restart).
 
 **Heads-up for the remaining modules:** only modules 13 (conversion) and
 16 (dropout) have been retrained under scikit-learn 1.9.1 so far. Modules
-18 (fee default), 19 (call sentiment) and 20 (demand forecast) are
+18 (fee default) and 20 (demand forecast) are
 likely to hit the same `_fill_dtype` / version-skew error the first time
 they're called — if "Not available" shows up, retrain that one model and
 restart uvicorn before debugging the frontend. (14, 17 and 22 were
-verified live on the Leads page, so they're fine.)
+verified live on the Leads page, and 19 on Followups, so they're fine.)
 
 **#3 — Two servers running by accident.** While testing this live, John
 once started a second `uvicorn` in a new terminal without stopping the
