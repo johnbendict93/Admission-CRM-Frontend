@@ -51,9 +51,13 @@ export async function POST(req: NextRequest) {
     return response;
   } catch (err) {
     console.error("LOGIN_ROUTE_ERROR", err);
-    return NextResponse.json(
-      { detail: `login route threw: ${err instanceof Error ? err.stack : String(err)}` },
-      { status: 500 }
-    );
+    // Full stack only in local dev - in production it would leak server
+    // internals (file paths, backend URL) to anyone hitting /login. The
+    // real error is still in the server logs via console.error above.
+    const detail =
+      process.env.NODE_ENV === "production"
+        ? "Login is temporarily unavailable. Please try again in a minute."
+        : `login route threw: ${err instanceof Error ? err.stack : String(err)}`;
+    return NextResponse.json({ detail }, { status: 500 });
   }
 }
