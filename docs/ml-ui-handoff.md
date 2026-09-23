@@ -35,6 +35,10 @@ Two separate local repos, both connected as folders in this Cowork session:
   the schema changes, don't let them go stale silently again).
 - `491f464` — retrained `conversion_model.joblib` to fix a scikit-learn
   version-skew bug (see "Known gotcha #2" below).
+- `f1d304c` — retrained `dropout_risk_model.joblib` for the same
+  version-skew bug (gotcha #2 hit again on module 16). CV metrics
+  unchanged: ROC-AUC 0.605 (weak — barely better than chance, and can
+  show overconfident values like 99% on individual rows).
 
 **Frontend repo (`Admission-CRM-Frontend`):**
 - `91f2081` — added the 2 missing CRUD pages: **Fee Due Schedule**
@@ -51,11 +55,17 @@ Two separate local repos, both connected as folders in this Cowork session:
   in the list.
 - `5d3ccb7` — fixed a display bug (see "Known gotcha #1" below).
 
+- **Applications page — Dropout Risk (module 16) DONE** — "AI Insights"
+  button per row + one-section dialog in
+  `src/app/(app)/applications/page.tsx`. Live-verified in the browser
+  after the `f1d304c` retrain. (Commit hash: see `git log` —
+  `feat: add dropout risk AI Insights to Applications page`.)
+
 **Live-verified in the browser** (all 4 Leads predictions confirmed working
 with real values, not just "Not available"): conversion likelihood, fraud
 check, best time to call, best telecaller match.
 
-## Remaining work — 6 ML modules across 4 pages
+## Remaining work — 5 ML modules across 4 pages (Applications done)
 
 Follow the **Leads page pattern** (`src/app/(app)/leads/page.tsx`,
 commit `882eacf`) as the reference implementation: an "AI Insights" button
@@ -63,7 +73,7 @@ that opens a `Dialog`, with the prediction hook(s) called with
 `{ query: { enabled: <dialog is open for this row> } }` so they're lazy —
 never fetched for every row in a list on page load.
 
-### 1. Applications page — Dropout Risk (module 16)
+### 1. Applications page — Dropout Risk (module 16) — DONE
 
 - Route: `GET /ml/applications/{application_id}/dropout-risk`
 - Hook: `useGetDropoutRiskMlApplicationsApplicationIdDropoutRiskGet(applicationId, { query: { enabled } })`
@@ -166,6 +176,14 @@ under the currently-installed scikit-learn (pinned to `1.9.1` in
 `requirements.txt`), then **restart `uvicorn`** (it caches the loaded
 model in memory via `lru_cache` — a code-only `--reload` does NOT pick up
 a changed `.joblib` file, has to be a manual stop + restart).
+
+**Heads-up for the remaining modules:** only modules 13 (conversion) and
+16 (dropout) have been retrained under scikit-learn 1.9.1 so far. Modules
+18 (fee default), 19 (call sentiment) and 20 (demand forecast) are
+likely to hit the same `_fill_dtype` / version-skew error the first time
+they're called — if "Not available" shows up, retrain that one model and
+restart uvicorn before debugging the frontend. (14, 17 and 22 were
+verified live on the Leads page, so they're fine.)
 
 **#3 — Two servers running by accident.** While testing this live, John
 once started a second `uvicorn` in a new terminal without stopping the

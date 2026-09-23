@@ -10,6 +10,7 @@ import {
   useDeleteApplicationApplicationsApplicationIdDelete,
   getListApplicationsApplicationsGetQueryKey,
   useListApplicantsApplicantsGet,
+  useGetDropoutRiskMlApplicationsApplicationIdDropoutRiskGet,
 } from "@/lib/api-client/generated";
 import type { ApplicationResponse } from "@/lib/api-client/generated/models";
 import { Button } from "@/components/ui/button";
@@ -119,6 +120,7 @@ export default function ApplicationsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingApplication, setEditingApplication] = useState<ApplicationResponse | null>(null);
   const [form, setForm] = useState<ApplicationFormValues>(emptyForm);
+  const [insightsApplication, setInsightsApplication] = useState<ApplicationResponse | null>(null);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -134,6 +136,14 @@ export default function ApplicationsPage() {
   const createMutation = useCreateApplicationApplicationsPost();
   const updateMutation = useUpdateApplicationApplicationsApplicationIdPatch();
   const deleteMutation = useDeleteApplicationApplicationsApplicationIdDelete();
+
+  // AI Insights dialog - module 16 dropout risk (app/routers/ml_dropout_risk.py,
+  // keyed on application_id). Same lazy pattern as the Leads page: only
+  // fetched for the one application whose dialog is open, never per row.
+  const insightsId = insightsApplication?.id ?? "";
+  const dropoutQuery = useGetDropoutRiskMlApplicationsApplicationIdDropoutRiskGet(insightsId, {
+    query: { enabled: insightsApplication !== null },
+  });
 
   const applications: ApplicationResponse[] =
     listQuery.data?.status === 200 ? listQuery.data.data.items : [];
@@ -286,6 +296,9 @@ export default function ApplicationsPage() {
                 </TableCell>
                 <TableCell>{a.allotted_seat_type ?? "-"}</TableCell>
                 <TableCell className="text-right space-x-2">
+                  <Button variant="outline" size="sm" onClick={() => setInsightsApplication(a)}>
+                    AI Insights
+                  </Button>
                   {canWrite(role) && (
                     <Button variant="outline" size="sm" onClick={() => openEdit(a)}>
                       Edit
@@ -521,6 +534,53 @@ export default function ApplicationsPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={insightsApplication !== null}
+        onOpenChange={(open) => !open && setInsightsApplication(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              AI Insights
+              {insightsApplication
+                ? ` \u2013 ${insightsApplication.application_no ?? applicantLabel(insightsApplication.applicant_id)}`
+                : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              {"Predictions from ML models trained on sample data \u2014 treat as a guide, not a guarantee."}
+            </p>
+
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Dropout risk</p>
+              {dropoutQuery.isLoading && (
+                <p className="text-sm text-muted-foreground">Loading...</p>
+              )}
+              {dropoutQuery.data?.status === 200 && (
+                <p className="text-sm">
+                  {(dropoutQuery.data.data.dropout_probability * 100).toFixed(0)}% chance of dropping out
+                  {" \u00b7 "}
+                  <Badge
+                    variant={
+                      dropoutQuery.data.data.dropout_probability >= 0.5 ? "destructive" : "secondary"
+                    }
+                  >
+                    {dropoutQuery.data.data.predicted_label}
+                  </Badge>
+                </p>
+              )}
+              {dropoutQuery.data && dropoutQuery.data.status !== 200 && (
+                <p className="text-sm text-muted-foreground">Not available.</p>
+              )}
+              {dropoutQuery.isError && (
+                <p className="text-sm text-muted-foreground">Not available.</p>
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
