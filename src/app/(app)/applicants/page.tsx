@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   useListApplicantsApplicantsGet,
+  useListUsersUsersGet,
   useCreateApplicantApplicantsPost,
   useUpdateApplicantApplicantsApplicantIdPatch,
   useDeleteApplicantApplicantsApplicantIdDelete,
@@ -155,6 +156,12 @@ const emptyForm: ApplicantFormValues = {
 const str = (v: string | null | undefined) => v ?? "";
 const num = (v: number | null | undefined) => (v === null || v === undefined ? "" : String(v));
 
+// Roles offered in the assigned-counselor picker - same list as the
+// Counseling Sessions page, so both pickers agree on who counts as a
+// counselor (viewers excluded).
+const COUNSELOR_ROLES = ["admin", "counselor", "staff"];
+const NO_COUNSELOR = "__none__";
+
 function toPayload(form: ApplicantFormValues) {
   return {
     first_name: form.first_name,
@@ -221,6 +228,18 @@ export default function ApplicantsPage() {
   }, []);
 
   const listQuery = useListApplicantsApplicantsGet({ limit: 50, offset: 0 });
+  const counselorsQuery = useListUsersUsersGet({ role: COUNSELOR_ROLES, limit: 200, offset: 0 });
+  const counselors = useMemo(
+    () => (counselorsQuery.data?.status === 200 ? counselorsQuery.data.data.items : []),
+    [counselorsQuery.data]
+  );
+  // An applicant whose saved counselor is no longer in the active list
+  // (deactivated, or now a viewer) - keep showing that value explicitly
+  // instead of a blank picker.
+  const counselorMissing =
+    counselorsQuery.data?.status === 200 &&
+    !!form.assigned_counselor &&
+    !counselors.some((u) => u.id === form.assigned_counselor);
   const createMutation = useCreateApplicantApplicantsPost();
   const updateMutation = useUpdateApplicantApplicantsApplicantIdPatch();
   const deleteMutation = useDeleteApplicantApplicantsApplicantIdDelete();
@@ -527,7 +546,37 @@ export default function ApplicantsPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   {field("reference_name", "Reference name")}
-                  {field("assigned_counselor", "Assigned counselor (user ID)")}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="assigned_counselor">Assigned counselor</Label>
+                    <Select
+                      value={form.assigned_counselor || NO_COUNSELOR}
+                      onValueChange={(v) =>
+                        setForm({ ...form, assigned_counselor: v === NO_COUNSELOR ? "" : v })
+                      }
+                    >
+                      <SelectTrigger id="assigned_counselor">
+                        <SelectValue placeholder="Select a counselor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NO_COUNSELOR}>Not assigned</SelectItem>
+                        {counselorMissing && (
+                          <SelectItem value={form.assigned_counselor}>
+                            Current counselor (inactive or unavailable) -{" "}
+                            {form.assigned_counselor.slice(0, 8)}
+                          </SelectItem>
+                        )}
+                        {counselors.map((u) => (
+                          <SelectItem key={u.id} value={u.id}>
+                            {u.full_name} ({u.role}
+                            {u.department ? `, ${u.department}` : ""})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {counselorsQuery.isError && (
+                      <p className="text-xs text-destructive">Failed to load the staff list.</p>
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   {field("status", "Status")}

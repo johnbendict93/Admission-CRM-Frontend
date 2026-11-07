@@ -95,9 +95,16 @@ export default function LeadsPage() {
   // dialog is open, and only while it's open.
   const insightsId = insightsLead?.id ?? "";
   const insightsEnabled = insightsLead !== null;
+  // Enrolled / Lost leads are already decided - predicting "likely to
+  // enroll", a best call time or a telecaller match for them is
+  // meaningless, so those 3 are skipped (fraud check still runs).
+  const insightsClosed = ["enrolled", "lost"].includes(
+    (insightsLead?.status ?? "").toLowerCase()
+  );
+  const openInsightsEnabled = insightsEnabled && !insightsClosed;
   const conversionQuery = useGetConversionPredictionMlLeadsLeadIdConversionPredictionGet(
     insightsId,
-    { query: { enabled: insightsEnabled } }
+    { query: { enabled: openInsightsEnabled } }
   );
   const fraudQuery = useGetFraudScoreMlLeadsLeadIdFraudScoreGet(
     insightsId,
@@ -105,11 +112,11 @@ export default function LeadsPage() {
   );
   const followupTimeQuery = useGetBestFollowupTimeMlLeadsLeadIdBestFollowupTimeGet(
     insightsId,
-    { query: { enabled: insightsEnabled } }
+    { query: { enabled: openInsightsEnabled } }
   );
   const telecallerQuery = useGetBestTelecallerMlLeadsLeadIdBestTelecallerGet(
     insightsId,
-    { query: { enabled: insightsEnabled } }
+    { query: { enabled: openInsightsEnabled } }
   );
 
   const leads: LeadResponse[] =
@@ -398,6 +405,15 @@ export default function LeadsPage() {
               {"Predictions from ML models trained on sample data \u2014 treat as a guide, not a guarantee."}
             </p>
 
+            {insightsClosed && (
+              <p className="text-sm rounded-md border bg-muted/40 p-3">
+                This lead is already <strong>{insightsLead?.status}</strong>, so enrollment,
+                call-time and telecaller predictions don&apos;t apply. Only the fraud check
+                is shown.
+              </p>
+            )}
+
+            {!insightsClosed && (
             <div className="space-y-1">
               <p className="text-sm font-medium">Conversion likelihood</p>
               {conversionQuery.isLoading && (
@@ -420,6 +436,7 @@ export default function LeadsPage() {
                 <p className="text-sm text-muted-foreground">Not available.</p>
               )}
             </div>
+            )}
 
             <div className="space-y-1">
               <p className="text-sm font-medium">Fraud check</p>
@@ -438,6 +455,8 @@ export default function LeadsPage() {
               )}
             </div>
 
+            {!insightsClosed && (
+            <>
             <div className="space-y-1">
               <p className="text-sm font-medium">Best time to call</p>
               {followupTimeQuery.isLoading && (
@@ -481,6 +500,8 @@ export default function LeadsPage() {
                 <p className="text-sm text-muted-foreground">Not available.</p>
               )}
             </div>
+            </>
+            )}
           </div>
         </DialogContent>
       </Dialog>

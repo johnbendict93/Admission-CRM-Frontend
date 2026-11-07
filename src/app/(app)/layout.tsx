@@ -53,7 +53,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <aside className="w-56 shrink-0 border-r bg-muted/30 p-4 flex flex-col gap-1 overflow-y-auto">
         <div className="mb-4 px-2">
           <p className="text-sm font-semibold">Admission CRM</p>
-          <p className="text-xs text-muted-foreground">Phase A + B + C + D</p>
         </div>
         {(user?.role === "admin" ? [...NAV_ITEMS, ...ADMIN_NAV_ITEMS] : NAV_ITEMS).map((item) => (
           <Link
